@@ -1,0 +1,43 @@
+{
+  "name": "scoreboard-app",
+  "version": "1.0.0",
+  "description": "A simple scoreboard application",
+  "author": "Kun",
+  "main": "main.js",
+  "bin": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64 --ia32"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "pkg": "^5.8.1"
+  },
+  "pkg": {
+    "targets": [
+      "node14-win-x64"
+    ],
+    "assets": [
+      "index.html",
+      "main.js"
+    ],
+    "excludes": [
+      "node_modules/electron/dist/**/*",
+      "node_modules/sliced/**/*",
+      "node_modules/deep-defaults/**/*"
+    ]
+  },
+  "build": {
+  "appId": "com.yourapp.id",
+  "files": [
+    "index.html",
+    "main.js",
+    "node_modules/**/*"
+  ],
+  "icon": "logo.ico",
+  "directories": {
+    "output": "dist"
+  }
+}
+}

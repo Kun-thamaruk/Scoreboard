@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Robot Soccer Scoreboard</title>
+    <style>
+        .scoreboard {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            width: auto;
+            font-family: 'Quicksand', sans-serif;
+            align-items: center;
+        }
+        .scoreboard__name {
+            font-size: 8em;
+            font-weight: bold;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+            text-align: center;
+            overflow: hidden; /* Prevents overflow */
+            white-space: nowrap; /* Keeps the text in one line */
+            text-overflow: ellipsis; /* Adds ellipsis for overflowed text */
+        }
+        .scoreboard__name--one {
+            color: red;
+        }
+        .scoreboard__name--two {
+            color: blue;
+        }
+        .scoreboard__score {
+            font-size: 20em;
+            text-align: center;
+            color: inherit;
+        }
+        .scoreboard__score[data-for-player='one'] {
+            color: red;
+        }
+        .scoreboard__score[data-for-player='two'] {
+            color: blue;
+        }
+        .label {
+            font-size: 3em;
+            text-align: center;
+        }
+        .timer {
+            font-size: 9em;
+            text-align: center;
+        }
+        .scoreboard__controls {
+            display: flex;
+            justify-content: center;
+        }
+        .scoreboard__control-button {
+            flex-grow: 1;
+            border: none;
+            background: #eee;
+            cursor: pointer;
+            font-size: 5vh;
+            height: 8vh;
+            margin: 0 10px;
+        }
+        .scoreboard__control-button:hover {
+            background: #ddd;
+        }
+        .scoreboard__control-button:active {
+            background: #ccc;
+        }
+        .center {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .input-name {
+            font-size: 1em;
+            border: none;
+            text-align: center;
+            outline: none;
+            width: 100%;
+            background: transparent;
+        }
+        .timer-controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .timer-controls button {
+            font-size: 2em;
+            margin: 0 10px;
+            padding: 10px 20px;
+        }
+
+        /* Media queries for responsiveness */
+        @media (max-width: 1200px) {
+            .scoreboard__name {
+                font-size: 6em;
+            }
+            .scoreboard__score {
+                font-size: 15em;
+            }
+            .timer {
+                font-size: 7em;
+            }
+            .label {
+                font-size: 2em;
+            }
+        }
+
+        @media (max-width: 800px) {
+            .scoreboard__name {
+                font-size: 5em;
+            }
+            .scoreboard__score {
+                font-size: 12em;
+            }
+            .timer {
+                font-size: 5em;
+            }
+            .label {
+                font-size: 1.5em;
+            }
+            .scoreboard__control-button {
+                font-size: 4vh;
+                height: 6vh;
+            }
+        }
+
+        @media (max-width: 500px) {
+            .scoreboard__name {
+                font-size: 4em;
+            }
+            .scoreboard__score {
+                font-size: 10em;
+            }
+            .timer {
+                font-size: 4em;
+            }
+            .label {
+                font-size: 1.2em;
+            }
+            .scoreboard__control-button {
+                font-size: 3vh;
+                height: 5vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <br>
+    <img src="https://cdn.discordapp.com/attachments/1223310811880226889/1296028708695576616/back-removebg-preview.png?ex=6710cc4b&is=670f7acb&hm=76db209621219ad9905e7d68b9e3aa9848fa51527d92cfc791275de03943f8e8&" height="100px" class="center">
+    <div id="app"></div>
+    <script>
+        var cnt=0,x=0;
+        class ScoreboardView {
+            constructor(root, teamOneName, teamTwoName, onControlButtonClick) {
+                this.root = root;
+                this.teamOneName = teamOneName;
+                this.teamTwoName = teamTwoName;
+                this.isFirstHalf = true;
+                this.render();
+                this.startTimer = false;
+                this.timerInterval = null;
+                this.timeLeft = 120;
+
+                this.root.querySelectorAll(".scoreboard__control-button").forEach(controlButton => {
+                    controlButton.addEventListener("click", () => {
+                        const direction = controlButton.textContent === "-" ? "minus" : "plus";
+                        const player = controlButton.closest(".scoreboard__controls").dataset.forPlayer;
+                        onControlButtonClick(player, direction);
+                    });
+                });
+
+                this.root.querySelectorAll(".scoreboard__name").forEach((nameElement, index) => {
+                    nameElement.addEventListener("click", () => {
+                        const currentName = nameElement.textContent;
+                        const input = document.createElement("input");
+                        input.value = currentName;
+                        input.className = "input-name";
+
+                        input.addEventListener("blur", () => {
+                            this.updateName(nameElement, input, index);
+                        });
+
+                        input.addEventListener("keydown", (event) => {
+                            if (event.key === "Enter") {
+                                this.updateName(nameElement, input, index);
+                            }
+                        });
+
+                        nameElement.textContent = "";
+                        nameElement.appendChild(input);
+                        input.focus();
+                        nameElement.style.cursor = "text";
+                    });
+                });
+            }
+
+            render() {
+                this.root.innerHTML = `
+                    <div class="scoreboard">
+                        <div class="scoreboard__name scoreboard__name--one">${this.teamOneName}</div>
+                        <div class="timer" id="timer">02:00</div>
+                        <div class="scoreboard__name scoreboard__name--two">${this.teamTwoName}</div>
+                        <div class="scoreboard__score" data-for-player="one">0</div>
+                        <div class="label">${this.isFirstHalf ? '1st' : '2nd'}</div>
+                        <div class="scoreboard__score" data-for-player="two">0</div>
+                        <div class="scoreboard__controls" data-for-player="one">
+                            <button class="scoreboard__control-button" aria-label="Decrease score for ${this.teamOneName}">-</button>
+                            <button class="scoreboard__control-button" aria-label="Increase score for ${this.teamOneName}">+</button>
+                        </div>
+                        <div class="timer-controls">
+                            <button id="toggleButton">Start</button>
+                        </div>
+                        <div class="scoreboard__controls" data-for-player="two">
+                            <button class="scoreboard__control-button" aria-label="Decrease score for ${this.teamTwoName}">-</button>
+                            <button class="scoreboard__control-button" aria-label="Increase score for ${this.teamTwoName}">+</button>
+                        </div>
+                    </div>
+                `;
+
+                this.root.querySelector("#toggleButton").addEventListener("click", () => this.toggleCountdown());
+                this.adjustFontSize();
+            }
+
+            adjustFontSize() {
+                const names = this.root.querySelectorAll(".scoreboard__name");
+                names.forEach(nameElement => {
+                    const maxLength = 10; // Set a max length for names
+                    const name = nameElement.textContent;
+
+                    if (name.length > maxLength) {
+                        nameElement.style.fontSize = `${(10 / name.length) * 8}em`; // Adjust font size based on length
+                    } else {
+                        nameElement.style.fontSize = '8em'; // Default font size
+                    }
+                });
+            }
+
+            update(teamOneScore, teamTwoScore) {
+                this.root.querySelector(".scoreboard__score[data-for-player='one']").textContent = teamOneScore;
+                this.root.querySelector(".scoreboard__score[data-for-player='two']").textContent = teamTwoScore;
+            }
+
+            updateName(nameElement, input, index) {
+                const newName = input.value || "TEAM " + (index + 1);
+                nameElement.textContent = newName;
+                nameElement.style.cursor = "pointer";
+                if (index === 0) {
+                    this.teamOneName = newName;
+                } else {
+                    this.teamTwoName = newName;
+                }
+                this.adjustFontSize(); // Adjust font size after updating name
+            }
+
+            toggleCountdown() {
+                const button = this.root.querySelector("#toggleButton");
+                if (this.startTimer) {
+                    this.pauseCountdown();
+                    button.textContent = "Resume";
+                } else {
+                    if (this.timeLeft <= 0) {
+                        this.continueGame();
+                    } else {
+                        this.startCountdown();
+                        button.textContent = "Pause";
+                    }
+                }
+            }
+
+            startCountdown() {
+                if (this.startTimer) return;
+
+                this.startTimer = true;
+                this.timerInterval = setInterval(() => {
+                    if (this.timeLeft <= 0) {
+                        if (cnt==0){
+                            clearInterval(this.timerInterval);
+                            this.root.querySelector("#timer").textContent = "END!";
+                            this.startTimer = false;
+                            this.root.querySelector("#toggleButton").textContent = "Continue";
+                            this.isFirstHalf = false;
+                            this.root.querySelector(".label").textContent = "2nd";
+                            cnt++;
+                        }
+                        else {
+                            clearInterval(this.timerInterval);
+                            this.root.querySelector("#timer").textContent = "END!";
+                            this.startTimer = false;
+                            this.root.querySelector("#toggleButton").textContent = "Reset";
+                            this.isFirstHalf = false;
+                            this.root.querySelector(".label").textContent = "Final score";
+                            x=1;
+                        }
+                    } else {
+                        const minutes = Math.floor(this.timeLeft / 60);
+                        const seconds = this.timeLeft % 60;
+                        this.root.querySelector("#timer").textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                        this.timeLeft--;
+                    }
+                }, 1000);
+            }
+
+            continueGame() {
+                if (x==1) {
+                    location.reload();
+                }
+                this.timeLeft = 120;
+                this.startCountdown();
+                this.root.querySelector("#toggleButton").textContent = "Pause";
+            }
+
+            pauseCountdown() {
+                if (!this.startTimer) return;
+                clearInterval(this.timerInterval);
+                this.startTimer = false;
+            }
+        }
+
+        let teamOneScore = 0;
+        let teamTwoScore = 0;
+        let name1 = "TEAM 1";
+        let name2 = "TEAM 2";
+
+        const root = document.querySelector("#app");
+        const view = new ScoreboardView(root, name1, name2, (player, direction) => {
+            const difference = direction === "minus" ? -1 : 1;
+
+            if (player === "one") {
+                teamOneScore = Math.max(teamOneScore + difference, 0);
+            } else {
+                teamTwoScore = Math.max(teamTwoScore + difference, 0);
+            }
+
+            view.update(teamOneScore, teamTwoScore);
+        });
+
+        view.update(teamOneScore, teamTwoScore);
+    </script>
+</body>
+</html>
